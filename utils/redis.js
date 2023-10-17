@@ -1,56 +1,36 @@
-import { createClient } from "redis";
+import { createClient } from 'redis';
+import { promisify } from 'util';
 
+// connect to redis
 class RedisClient {
-   constructor(){
-        this.client = createClient();
-        this.client.on('error', (err) => {
-            console.log('Redis client error:', err);
-        })
-    }
+  constructor() {
+    this.client = createClient();
+    this.asyncGet = promisify(this.client.get).bind(this.client);
+    this.asyncSet = promisify(this.client.set).bind(this.client);
+    this.client.on('error', (err) => {
+      console.log(err);
+    });
+  }
 
-    isAlive() {
-        return this.client.connected;
-    }
+  isAlive() {
+    return this.client.connected;
+  }
 
-    async get(key) {
-        return new Promise((resolve, reject) => {
-            this.client.get(key, (err, reply) => {
-                if (err){
-                    reject(err);
-                }
-                else {
-                    resolve(reply);
-                }
-            });
-        });
-    }
+  async get(key) {
+    const result = await this.asyncGet(key);
+    return result;
+  }
 
-    async set(key, value, duration) {
-        return new Promise((resolve, reject) => {
-            this.client.set(key, value, 'EX', duration, (err, reply) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(reply);
-                }
-            });
-        });
-    }
+  async set(key, value, duration) {
+    await this.asyncSet(key, value);
+    await this.client.expire(key, duration);
+  }
 
-    async del(key) {
-        return new Promise((resolve, reject) => {
-            this.client.del(key, (err, reply) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(reply);
-                }
-            });
-        });
-    }
-
+  async del(key) {
+    await this.client.del(key);
+  }
 }
 
 const redisClient = new RedisClient();
-export default redisClient;
 
+module.exports = redisClient;
